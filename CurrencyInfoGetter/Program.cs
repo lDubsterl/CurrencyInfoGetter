@@ -1,3 +1,6 @@
+using Microsoft.OpenApi.Models;
+
+#pragma warning disable CS1591 // Отсутствует комментарий XML для открытого видимого типа или члена
 
 namespace CurrencyInfoGetter
 {
@@ -12,7 +15,21 @@ namespace CurrencyInfoGetter
 			builder.Services.AddControllers();
 			// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 			builder.Services.AddEndpointsApiExplorer();
-			builder.Services.AddSwaggerGen();
+			builder.Services.AddSwaggerGen(options =>
+			{
+				var basePath = AppContext.BaseDirectory;
+				var xmlPath = Path.Combine(basePath, "CurrencyInfoGetter.xml");
+
+				options.IncludeXmlComments(xmlPath);
+
+				options.SwaggerDoc("v1", new OpenApiInfo
+				{
+					Version = "v1",
+					Title = "Currency rate getter API",
+					Description = "API для получения информации о курсе валют от нацбанка РБ." +
+					" Для начала работы нужно указать данные для подключения к бд в appsettings.json"
+				});
+			});
 
 			var app = builder.Build();
 

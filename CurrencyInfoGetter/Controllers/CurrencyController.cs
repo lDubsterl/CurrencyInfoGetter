@@ -1,13 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Net.Http;
-using System.Reflection.Metadata.Ecma335;
-using System.Linq;
-using System.Threading.RateLimiting;
 using CurrencyInfoGetter.Models;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using ISO._4217.Models;
 using ISO._4217;
+
+#pragma warning disable CS1591 // Отсутствует комментарий XML для открытого видимого типа или члена
 
 namespace CurrencyInfoGetter.Controllers
 {
@@ -24,7 +21,11 @@ namespace CurrencyInfoGetter.Controllers
 			_logger = logger;
 			_db = context;
 		}
-
+		/// <summary>
+		/// Загрузить информацию о курсе валют за определенную дату в базу данных
+		/// </summary>
+		/// <param name="date">Формат даты: дд.мм.гггг. В случае отсутствия будет выведена информация за текущий день</param>
+		/// <returns></returns>
 		[HttpGet]
 		public async Task<ObjectResult> GetCurrencyRate(string date = "")
 		{
@@ -65,9 +66,14 @@ namespace CurrencyInfoGetter.Controllers
 				_db.AddRange(_currencies);
 				_db.SaveChanges();
 			}
-			return StatusCode(StatusCodes.Status200OK, $"Курс валют за {date} успешно загружен");
+			return StatusCode(StatusCodes.Status200OK, $"Курс валют за {DateOnly.FromDateTime(convertedDate)} успешно загружен");
 		}
-
+		/// <summary>
+		/// Получить информацию о курсе валют за определенную дату из базы данных
+		/// </summary>
+		/// <param name="currencyCode">Код валюты согласно ИСО-4217</param>
+		/// <param name="date">Формат даты: дд.мм.гггг. В случае отсутствия будет выведена информация за текущий день</param>
+		/// <returns></returns>
 		[HttpGet]
 		public ObjectResult ReturnCurrencyInfo([Required] int currencyCode, string date = "")
 		{
