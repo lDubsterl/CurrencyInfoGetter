@@ -12,7 +12,6 @@ namespace CurrencyInfoGetter
 		{
 			_connectionString = $"Server={config["DbServerAddress"]};User Id={config["DbUserId"]};" +
 				$"Password={config["DbPassword"]};Port={config["DbPort"]};Database={config["DbName"]};";
-			Database.EnsureCreated();
 		}
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
