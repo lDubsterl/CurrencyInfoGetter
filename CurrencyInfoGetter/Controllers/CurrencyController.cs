@@ -1,6 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http;
 using System.Reflection.Metadata.Ecma335;
+using System.Linq;
+using System.Threading.RateLimiting;
+using CurrencyInfoGetter.Models;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using ISO._4217.Models;
+using ISO._4217;
 
 namespace CurrencyInfoGetter.Controllers
 {
@@ -10,32 +17,74 @@ namespace CurrencyInfoGetter.Controllers
 	{
 		private readonly ILogger<CurrencyController> _logger;
 		private const string _requestUrl = "https://api.nbrb.by/exrates/rates";
-		private static Rate[] _currencies = [];
-		public CurrencyController(ILogger<CurrencyController> logger)
+		private List<Rate> _currencies = [];
+		private readonly ApplicationContext _db;
+		public CurrencyController(ILogger<CurrencyController> logger, ApplicationContext context)
 		{
 			_logger = logger;
+			_db = context;
 		}
 
 		[HttpGet]
-		public async Task<StatusCodeResult> GetCurrencyRate(DateTime date)
+		public async Task<ObjectResult> GetCurrencyRate(string date = "")
 		{
-			var client = new HttpClient();
-			var response = await client.GetFromJsonAsync<Rate[]>($"{_requestUrl + "?ondate=" + date.ToString()}&periodicity=0&parammode=2");
-			if (response == null)
-				return StatusCode(StatusCodes.Status404NotFound);
-			_currencies = response;
-			return StatusCode(StatusCodes.Status200OK);
-		}
-
-		[HttpGet]
-		public Rate? ReturnCurrencyInfo(DateTime date, string currencyAbbreviation)
-		{
-			foreach (var currency in _currencies)
+			string stringDate;
+			DateTime convertedDate;
+			try
 			{
-				if (currency.Cur_Abbreviation == currencyAbbreviation)
-					return currency;
+				convertedDate = convertDate(date);
+				stringDate = $"{convertedDate.Year}-{convertedDate.Month}-{convertedDate.Day}";
 			}
-			return null;
+			catch (FormatException)
+			{
+				return StatusCode(StatusCodes.Status400BadRequest, "Неверный формат даты");
+			}
+
+			var client = new HttpClient();
+			var dailyCurrency = await client.GetFromJsonAsync<Rate[]>($"{_requestUrl + "?ondate=" + stringDate}&periodicity=0&parammode=0");
+			var monthlyCurrency = await client.GetFromJsonAsync<Rate[]>($"{_requestUrl + "?ondate=" + stringDate}&periodicity=1&parammode=0");
+			if ((dailyCurrency is null || monthlyCurrency is null) || dailyCurrency.Length + monthlyCurrency.Length is 0)
+				return StatusCode(StatusCodes.Status404NotFound, "Курс валют за текущую дату недоступен");
+
+			_currencies.AddRange(dailyCurrency);
+			_currencies.AddRange(monthlyCurrency);
+
+			_currencies = _currencies.Select(el =>
+			{
+				el.Date = DateTime.SpecifyKind(el.Date, DateTimeKind.Utc);
+				return el;
+			}).ToList();
+			try
+			{
+				_db.UpdateRange(_currencies);
+				_db.SaveChanges();
+			}
+			catch (DbUpdateConcurrencyException)
+			{
+				_db.Database.ExecuteSqlRaw("TRUNCATE TABLE \"Currencies\"");
+				_db.AddRange(_currencies);
+				_db.SaveChanges();
+			}
+			return StatusCode(StatusCodes.Status200OK, $"Курс валют за {date} успешно загружен");
+		}
+
+		[HttpGet]
+		public ObjectResult ReturnCurrencyInfo([Required] int currencyCode, string date = "")
+		{
+			var convertedDate = convertDate(date);
+			var cur = _db.Currencies.Where(element => element.Date == convertedDate 
+			&& element.Cur_Abbreviation == CurrencyCodesResolver.GetCodeByNumber(currencyCode)).ToList();
+			if (cur.Count > 0)
+				return StatusCode(StatusCodes.Status200OK, cur[0]);
+			return StatusCode(StatusCodes.Status404NotFound, $"Валюта с кодом {currencyCode} отсутствует на {convertedDate}");
+		}
+
+		DateTime convertDate(string date)
+		{
+			if (date == "")
+				return DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
+			else
+				return DateTime.SpecifyKind(DateTime.ParseExact(date, "dd.MM.yyyy", null), DateTimeKind.Utc);
 		}
 	}
 }
