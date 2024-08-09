@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 
 #pragma warning disable CS1591 // Отсутствует комментарий XML для открытого видимого типа или члена
@@ -30,11 +32,16 @@ namespace CurrencyInfoGetter
 					" Для начала работы нужно указать данные для подключения к бд в appsettings.json"
 				});
 			});
-
 			var app = builder.Build();
 
+			using (var scope = app.Services.CreateScope())
+			{
+				var db = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+				db.Database.Migrate();
+			}
+
 			// Configure the HTTP request pipeline.
-			if (app.Environment.IsDevelopment())
+			//if (app.Environment.IsDevelopment())
 			{
 				app.UseSwagger();
 				app.UseSwaggerUI();
@@ -43,7 +50,6 @@ namespace CurrencyInfoGetter
 			app.UseHttpsRedirection();
 
 			app.UseAuthorization();
-
 
 			app.MapControllers();
 
