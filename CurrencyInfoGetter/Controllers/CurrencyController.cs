@@ -22,9 +22,9 @@ namespace CurrencyInfoGetter.Controllers
 			_db = context;
 		}
 		/// <summary>
-		/// Загрузить информацию о курсе валют за определенную дату в базу данных
+		/// Upload currency exchanging rates for specific date in database
 		/// </summary>
-		/// <param name="date">Формат даты: дд.мм.гггг. В случае отсутствия будет выведена информация за текущий день</param>
+		/// <param name="date">Date format: dd.mm.yyyy. In case of absence, information at today will be uploaded</param>
 		/// <returns></returns>
 		[HttpGet]
 		public async Task<ObjectResult> GetCurrencyRate(string date = "")
@@ -38,14 +38,14 @@ namespace CurrencyInfoGetter.Controllers
 			}
 			catch (FormatException)
 			{
-				return StatusCode(StatusCodes.Status400BadRequest, "Неверный формат даты");
+				return StatusCode(StatusCodes.Status400BadRequest, "Incorrect date format");
 			}
 
 			var client = new HttpClient();
 			var dailyCurrency = await client.GetFromJsonAsync<Rate[]>($"{_requestUrl + "?ondate=" + stringDate}&periodicity=0&parammode=0");
 			var monthlyCurrency = await client.GetFromJsonAsync<Rate[]>($"{_requestUrl + "?ondate=" + stringDate}&periodicity=1&parammode=0");
 			if ((dailyCurrency is null || monthlyCurrency is null) || dailyCurrency.Length + monthlyCurrency.Length is 0)
-				return StatusCode(StatusCodes.Status404NotFound, "Курс валют за текущую дату недоступен");
+				return StatusCode(StatusCodes.Status404NotFound, "Exchange rate for this date is unavailable");
 
 			_currencies.AddRange(dailyCurrency);
 			_currencies.AddRange(monthlyCurrency);
@@ -66,23 +66,31 @@ namespace CurrencyInfoGetter.Controllers
 				_db.AddRange(_currencies);
 				_db.SaveChanges();
 			}
-			return StatusCode(StatusCodes.Status200OK, $"Курс валют за {DateOnly.FromDateTime(convertedDate)} успешно загружен");
+			return StatusCode(StatusCodes.Status200OK, $"Exchange rate at {DateOnly.FromDateTime(convertedDate)} uploaded successfully");
 		}
 		/// <summary>
-		/// Получить информацию о курсе валют за определенную дату из базы данных
+		/// Get currency exchanging rates for specific date from database
 		/// </summary>
-		/// <param name="currencyCode">Код валюты согласно ИСО-4217</param>
-		/// <param name="date">Формат даты: дд.мм.гггг. В случае отсутствия будет выведена информация за текущий день</param>
+		/// <param name="currencyCode">Currency code according to ISO-4217</param>
+		/// <param name="date">Date format: dd.mm.yyyy. In case of absence, information at today will be got</param>
 		/// <returns></returns>
 		[HttpGet]
 		public ObjectResult ReturnCurrencyInfo([Required] int currencyCode, string date = "")
 		{
-			var convertedDate = convertDate(date);
+			DateTime convertedDate;
+			try
+			{
+				convertedDate = convertDate(date);
+			}
+			catch (FormatException)
+			{
+				return StatusCode(StatusCodes.Status400BadRequest, "Incorrect date format");
+			}
 			var cur = _db.Currencies.Where(element => element.Date == convertedDate 
 			&& element.Cur_Abbreviation == CurrencyCodesResolver.GetCodeByNumber(currencyCode)).ToList();
 			if (cur.Count > 0)
 				return StatusCode(StatusCodes.Status200OK, cur[0]);
-			return StatusCode(StatusCodes.Status404NotFound, $"Валюта с кодом {currencyCode} отсутствует на {convertedDate}");
+			return StatusCode(StatusCodes.Status404NotFound, $"Currency with code {currencyCode} at {convertedDate} is absent");
 		}
 
 		DateTime convertDate(string date)

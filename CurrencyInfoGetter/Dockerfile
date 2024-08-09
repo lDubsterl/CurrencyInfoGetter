@@ -8,18 +8,6 @@ USER app
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
-User root
-RUN apt-get update && apt-get install -y locales
-
-# Locale
-RUN sed -i -e \
-  's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen \
-   && locale-gen
-
-ENV LANG ru_RU.UTF-8
-ENV LANGUAGE ru_RU:ru
-ENV LC_LANG ru_RU.UTF-8
-ENV LC_ALL ru_RU.UTF-8
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release

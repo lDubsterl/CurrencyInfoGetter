@@ -28,8 +28,7 @@ namespace CurrencyInfoGetter
 				{
 					Version = "v1",
 					Title = "Currency rate getter API",
-					Description = "API для получения информации о курсе валют от нацбанка РБ." +
-					" Для начала работы нужно указать данные для подключения к бд в appsettings.json"
+					Description = "API for getting currency exchange rate from national bank of Republic of Belarus."
 				});
 			});
 			var app = builder.Build();
